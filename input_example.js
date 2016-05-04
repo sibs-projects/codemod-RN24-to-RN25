@@ -5,6 +5,8 @@ import React, {
   StyleSheet,
   TouchableHighlight,
   TextInput,
+  PropTypes,
+  Children,
 } from 'react-native';
 import NavigationBar from 'react-native-navbar';
 

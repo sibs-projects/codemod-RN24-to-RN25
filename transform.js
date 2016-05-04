@@ -1,3 +1,20 @@
+const reactExports = [
+  'Children',
+  'Component',
+  'createElement',
+  'cloneElement',
+  'isValidElement',
+  'PropTypes',
+  'createClass',
+  'createFactory',
+  'createMixin',
+  'DOM',
+  'version'];
+
+// check for anyone of the React Export, for instance: import { Component } from 'react-native';
+const hasExport = (value, exportName) =>
+  value.type === 'ImportSpecifier' && value.local.name === exportName;
+
 module.exports = function(file, api) {
   var j = api.jscodeshift; // alias the jscodeshift API
   var root = j(file.source); // parse JS code into an AST
@@ -5,16 +22,14 @@ module.exports = function(file, api) {
   // check for import React from 'react-native';
   const hasReact = (value) =>
     value.type === 'ImportDefaultSpecifier' && value.local.name === 'React';
-    
-  // check for import { Component } from 'react-native';
-  const hasComponent = (value) =>
-    value.type === 'ImportSpecifier' && value.local.name === 'Component';
 
   const updateImport = (path) => {
     const { specifiers } = path.value;
     
     const rnImports = path.value.specifiers.filter(value => 
-      !(hasReact(value) || hasComponent(value))
+      !(hasReact(value) ||
+        reactExports.reduce((anyReactExport, exportName) => anyReactExport || hasExport(value, exportName), false))
+
     ).map(value => {
       const { name } = value.local;
       const id = j.identifier(name);
@@ -30,11 +45,13 @@ module.exports = function(file, api) {
     if (specifiers.filter(hasReact).length > 0) {
       reactImports.push(j.importDefaultSpecifier(j.identifier('React')));
     }
-    // Check and update import { Component } from 'react-native';
-    if (specifiers.filter(hasComponent).length > 0) {
-      reactImports.push(j.importSpecifier(j.identifier('Component')));
-    }
-    
+    // Check and update React Exports import { Component } from 'react-native';
+    reactExports.map((exportName) => {
+      if (specifiers.filter((value) => hasExport(value, exportName)).length > 0) {
+        reactImports.push(j.importSpecifier(j.identifier(exportName)));
+      }
+    });
+
     const allImports = [];
     if (reactImports.length > 0) {
       allImports.push(j.importDeclaration(
@@ -68,7 +85,8 @@ module.exports = function(file, api) {
     .filter(({node}) => {
       // check React or { Component } from 'react-native'
       return node.specifiers.filter(value => 
-        hasReact(value) || hasComponent(value)
+        hasReact(value) ||
+        reactExports.reduce((anyReactExport, exportName) => anyReactExport || hasExport(value, exportName), false)
       ).length > 0;
     })
     .forEach(updateImport);
