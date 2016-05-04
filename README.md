@@ -63,3 +63,12 @@ class LoginScreen extends Component {
   }
 }
 ```
+
+### Recast Options
+
+Options to [recast](https://github.com/benjamn/recast)'s printer can be provided
+through the `printOptions` command line argument
+
+```sh
+jscodeshift -t transform.js <path> --printOptions='{"quote":"double"}'
+```
