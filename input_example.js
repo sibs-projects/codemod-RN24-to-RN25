@@ -1,3 +1,8 @@
+/*
+ * @flow
+ * @providesModule module/myAwesomeProject
+ */
+
 import React, {
   Component,
   View,

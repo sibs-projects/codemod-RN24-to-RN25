@@ -25,8 +25,7 @@ module.exports = function(file, api) {
 
   const updateImport = (path) => {
     const { specifiers } = path.value;
-    
-    const rnImports = path.value.specifiers.filter(value => 
+  const rnImports = path.value.specifiers.filter(value =>
       !(hasReact(value) ||
         reactExports.reduce((anyReactExport, exportName) => anyReactExport || hasExport(value, exportName), false))
 
@@ -39,7 +38,7 @@ module.exports = function(file, api) {
         return j.importDefaultSpecifier(id);
       }
     })
-    
+
     const reactImports = [];
     // Check and update import React from 'react-native';
     if (specifiers.filter(hasReact).length > 0) {
@@ -57,23 +56,27 @@ module.exports = function(file, api) {
       allImports.push(j.importDeclaration(
         reactImports,
         j.literal('react')
-      ));  
+      ));
     }
-    
+
     if (rnImports.length > 0) {
       allImports.push(j.importDeclaration(
         rnImports,
         j.literal('react-native')
       ))
     }
-    
+
     j(path).replaceWith(
       allImports
     );
   }
 
+  //try to preserve comments at the top of file
+  const body = root.get().value.program.body;
+  const comments = (body && body.length && body[0].comments) ? body[0].comments : null;
+
   /*
-  Find and update all import React, { Component } from 'react-native' to 
+  Find and update all import React, { Component } from 'react-native' to
   import React, { Component } from 'react';
   */
   root
@@ -84,12 +87,17 @@ module.exports = function(file, api) {
     })
     .filter(({node}) => {
       // check React or { Component } from 'react-native'
-      return node.specifiers.filter(value => 
+      return node.specifiers.filter(value =>
         hasReact(value) ||
         reactExports.reduce((anyReactExport, exportName) => anyReactExport || hasExport(value, exportName), false)
       ).length > 0;
     })
     .forEach(updateImport);
+
+  //if there is a comment, bring it back to the source
+  if (comments) {
+    body[0].comments = comments;
+  }
 
   // print
   return root.toSource();
