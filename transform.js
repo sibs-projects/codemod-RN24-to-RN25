@@ -73,7 +73,7 @@ module.exports = function(file, api) {
 
   //try to preserve comments at the top of file
   const body = root.get().value.program.body;
-  const comments = body[0].comments
+  const comments = (body && body.length && body[0].comments) ? body[0].comments : null;
 
   /*
   Find and update all import React, { Component } from 'react-native' to
