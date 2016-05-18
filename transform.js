@@ -15,9 +15,14 @@ const reactExports = [
 const hasExport = (value, exportName) =>
   value.type === 'ImportSpecifier' && value.local.name === exportName;
 
-module.exports = function(file, api) {
+module.exports = function(file, api, options) {
   var j = api.jscodeshift; // alias the jscodeshift API
   var root = j(file.source); // parse JS code into an AST
+
+  const printOptions = options.printOptions || {
+    quote: 'single',
+    trailingComma: true,
+  };
 
   // check for import React from 'react-native';
   const hasReact = (value) =>
@@ -100,5 +105,5 @@ module.exports = function(file, api) {
   }
 
   // print
-  return root.toSource();
+  return root.toSource(printOptions);
 };
