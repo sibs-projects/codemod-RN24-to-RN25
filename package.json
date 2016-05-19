@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "test": "jscodeshift ./fixtures -d -p"
+  }
+}
