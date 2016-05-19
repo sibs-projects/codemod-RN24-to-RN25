@@ -7,15 +7,20 @@ You probably have many files that does this, so I've created a codemod to save y
 
 # How to use this
 
-- Install jscodeshif
-```bash
-npm install -g jscodeshift
-```
+1. Install jscodeshift
+1. Download this transform
+1. Navigate to the directory
+1. Run the transform
 
-- Download this transform
-- Run the transform
 ```bash
-jscodeshift -t transform.js FILES
+# 1
+npm install -g jscodeshift
+
+# 2, 3
+git clone git@github.com:sibeliusseraphini/codemod-RN24-to-RN25.git && cd codemod-RN24-to-RN25
+
+# 4.
+jscodeshift PATH_TO_FILES
 ```
 
 # Example
@@ -70,5 +75,5 @@ Options to [recast](https://github.com/benjamn/recast)'s printer can be provided
 through the `printOptions` command line argument. See the full list of options [here](https://github.com/benjamn/recast/blob/master/lib/options.js).
 
 ```sh
-jscodeshift -t transform.js <path> --printOptions='{"quote":"double"}'
+jscodeshift PATH_TO_FILES --printOptions='{"quote":"double"}'
 ```
