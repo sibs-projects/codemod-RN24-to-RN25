@@ -1,3 +1,5 @@
+import { describe } from 'jscodeshift-helper';
+
 const reactExports = [
   'Children',
   'Component',
@@ -15,6 +17,10 @@ const reactExports = [
 // check for anyone of the React Export, for instance: import { Component } from 'react-native';
 const hasExport = (value, exportName) =>
   value.type === 'ImportSpecifier' && value.local.name === exportName;
+
+// check for import React from 'react-native';
+const hasReactImport = (value) =>
+  value.type === 'ImportDefaultSpecifier' && value.local.name === 'React';
 
 // replaces required react-native in collection
 // input:  var React = require('react-native');
@@ -46,7 +52,22 @@ const replaceRequireCalls = (j, collection) => {
     });
 };
 
-module.exports = function(file, api, options) {
+// find local name for import
+const getLocalImportName = (j, collection, importSourceValue) => {
+  const importDeclaration = collection.find(j.ImportDeclaration, {
+    source: {
+      type: 'Literal',
+      value: importSourceValue,
+    },
+  });
+
+  if (importDeclaration.size()) {
+    return importDeclaration.find(j.Identifier)
+        .get(0).node.name;
+  }
+}
+
+export default function(file, api, options) {
   var j = api.jscodeshift; // alias the jscodeshift API
   var root = j(file.source); // parse JS code into an AST
 
@@ -54,10 +75,6 @@ module.exports = function(file, api, options) {
     quote: 'single',
     trailingComma: true,
   };
-
-  // check for import React from 'react-native';
-  const hasReactImport = (value) =>
-    value.type === 'ImportDefaultSpecifier' && value.local.name === 'React';
 
   const updateImport = (path) => {
     const { specifiers } = path.value;
@@ -110,26 +127,100 @@ module.exports = function(file, api, options) {
   const body = root.get().value.program.body;
   const comments = (body && body.length && body[0].comments) ? body[0].comments : null;
 
+  // find local name for react-native import
+  const rnLocalName = getLocalImportName(j, root, 'react-native');
+
+  // is it being used with destructuring anywhere?
+  const v = root.find(j.VariableDeclarator, {
+    id: {
+      type: 'ObjectPattern',
+    },
+    init: {
+      type: 'Identifier',
+      name: rnLocalName,
+    },
+  });
+
+  if (v.size()) {
+    // If it is, are they using an RN exports?
+    const getImportProperties = (variableDeclarators) => {
+      let importProperties = [];
+
+      variableDeclarators
+        .find(j.ObjectPattern)
+        .forEach(nodePath => {
+          const { node: { properties } } = nodePath;
+          importProperties = properties.map(property => property.key.name);
+        });
+
+      return importProperties;
+    };
+
+    const importProperties = getImportProperties(v);
+    const rnProperties = importProperties.filter(prop =>
+      reactExports.indexOf(prop) === -1);
+    const reactProperties = importProperties.filter(prop =>
+      reactExports.indexOf(prop) !== -1);
+
+    console.log('rnProperties', rnProperties);
+    console.log('reactProperties', reactProperties);
+
+    const propFactory = name => {
+      const property = j.property(
+        'init',
+        j.identifier(name),
+        j.identifier(name)
+      );
+
+      property.shorthand = true;
+
+      return property;
+    }
+
+    if (rnProperties.length) {
+      v.closest(j.VariableDeclaration)
+        .insertAfter(
+          j.variableDeclaration(
+            'const',
+            [
+              j.variableDeclarator(
+                j.objectPattern(
+                  rnProperties.map(propFactory)
+                ),
+
+                j.identifier('react-native')
+              )
+            ]
+          )
+        );
+    }
+  }
+
+  // If so, we need to
+  // 1. create an import for RN
+  // 2. split out the RN destructured imports into their own
+  // 3. split out the react destructured imports into their own
+
   /*
   Find and update all import React, { Component } from 'react-native' to
   import React, { Component } from 'react';
   */
-  root
-    .find(j.ImportDeclaration, {
-      source: {
-        value: 'react-native'
-      }
-    })
-    .filter(({node}) => {
-      // check React or { Component } from 'react-native'
-      return node.specifiers.filter(value =>
-        hasReactImport(value) ||
-        reactExports.reduce((anyReactExport, exportName) => anyReactExport || hasExport(value, exportName), false)
-      ).length > 0;
-    })
-    .forEach(updateImport);
+  // root
+  //   .find(j.ImportDeclaration, {
+  //     source: {
+  //       value: 'react-native'
+  //     }
+  //   })
+  //   .filter(({node}) => {
+  //     // check React or { Component } from 'react-native'
+  //     return node.specifiers.filter(value =>
+  //       hasReactImport(value) ||
+  //       reactExports.reduce((anyReactExport, exportName) => anyReactExport || hasExport(value, exportName), false)
+  //     ).length > 0;
+  //   })
+  //   .forEach(updateImport);
 
-  replaceRequireCalls(j, root);
+  // replaceRequireCalls(j, root);
 
   //if there is a comment, bring it back to the source
   if (comments) {
