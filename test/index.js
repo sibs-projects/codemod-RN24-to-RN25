@@ -48,8 +48,10 @@ Object.keys(pairs).map(inputFilePath => {
   const expected = fs.readFileSync(outputFilePath, 'utf8');
 
   if (transformed.trim() !== expected.trim()) {
-    console.log('expected\n', expected);
-    console.log('actual\n', transformed);
+    console.log('\nexpected\n');
+    console.log(expected);
+    console.log('\nactual\n');
+    console.log(transformed);
     throw new Error('result did not match expected output');
   }
 });

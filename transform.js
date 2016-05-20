@@ -12,9 +12,15 @@ const reactExports = [
   'version'
 ];
 
+const reactNativeLocalName = 'ReactNative';
+
 // check for anyone of the React Export, for instance: import { Component } from 'react-native';
 const hasExport = (value, exportName) =>
   value.type === 'ImportSpecifier' && value.local.name === exportName;
+
+// check for import React from 'react-native';
+const hasReactImport = (value) =>
+  value.type === 'ImportDefaultSpecifier' && value.local.name === 'React';
 
 // replaces required react-native in collection
 // input:  var React = require('react-native');
@@ -46,7 +52,135 @@ const replaceRequireCalls = (j, collection) => {
     });
 };
 
-module.exports = function(file, api, options) {
+// import foo from 'bar'
+// returns "foo"
+const getLocalImportName = (j, collection, importSourceValue) => {
+  const importDeclaration = collection.find(j.ImportDeclaration, {
+    source: {
+      type: 'Literal',
+      value: importSourceValue,
+    },
+  });
+
+  if (importDeclaration.size()) {
+    return importDeclaration.find(j.Identifier)
+        .get(0).node.name;
+  }
+}
+
+// import { a, b, c } from 'foo'
+// returns ['a', 'b', 'c']
+const getImportProperties = (j, variableDeclarators) => {
+  let importProperties = [];
+  variableDeclarators
+    .find(j.ObjectPattern)
+    .forEach(nodePath => {
+      const { node: { properties } } = nodePath;
+      importProperties = properties.map(property => property.key.name);
+    });
+
+  return importProperties;
+};
+
+const addReactNativeImport = (j, root) => {
+  root.find(j.ImportDeclaration, {
+    source: {
+      type: 'Literal',
+      value: 'react',
+    }
+  })
+  .insertAfter(
+    j.importDeclaration(
+      [
+        j.importDefaultSpecifier(
+          j.identifier(reactNativeLocalName)
+        )
+      ],
+      j.literal('react-native')
+    )
+  );
+};
+
+const propFactory = (j) => name => {
+  const property = j.property(
+    'init',
+    j.identifier(name),
+    j.identifier(name)
+  );
+
+  property.shorthand = true;
+
+  return property;
+};
+
+/**
+* Identifies local name for react-native and destructured assignment
+* against it.  If needed, creates another variable declarator
+* using destructuring against ReactNative and cleans up which property
+* is pulled from which import.
+* destructured.input.js -> destructured.output.js
+*/
+const fixDestructured = (j, root) => {
+  // find local name for react-native import
+  const rnLocalName = getLocalImportName(j, root, 'react-native');
+
+  // is it being used with destructuring anywhere?
+  const rnVariableDeclarator = root.find(j.VariableDeclarator, {
+    id: {
+      type: 'ObjectPattern',
+    },
+    init: {
+      type: 'Identifier',
+      name: rnLocalName,
+    },
+  });
+
+  let needsReactNativeImport = false;
+
+  if (rnVariableDeclarator.size()) {
+    const rnProperties = getImportProperties(j, rnVariableDeclarator)
+      .filter(prop => reactExports.indexOf(prop) === -1);
+
+    if (rnProperties.length) {
+      // The rest of the transform will rewrite our react-native import,
+      // so note that we need to make another one.
+      needsReactNativeImport = true;
+
+      // create destructured variable declarator for ReactNative
+      rnVariableDeclarator.closest(j.VariableDeclaration)
+        .insertAfter(
+          j.variableDeclaration(
+            'const',
+            [
+              j.variableDeclarator(
+                j.objectPattern(
+                  rnProperties.map(propFactory(j))
+                ),
+                j.identifier(reactNativeLocalName)
+              )
+            ]
+          )
+        );
+
+      // remove RN props from React variable declarator
+      rnVariableDeclarator.closest(j.VariableDeclaration)
+        .find(j.ObjectPattern)
+        .at(0)
+        .replaceWith(nodePath => {
+          const { node } = nodePath;
+          node.properties = node.properties.filter(node =>
+            reactExports.indexOf(node.key.name) > -1
+          );
+
+          return node;
+        });
+    }
+  }
+
+  return needsReactNativeImport;
+};
+
+export default function(file, api, options) {
   var j = api.jscodeshift; // alias the jscodeshift API
   var root = j(file.source); // parse JS code into an AST
 
@@ -54,10 +188,6 @@ module.exports = function(file, api, options) {
     quote: 'single',
     trailingComma: true,
   };
-
-  // check for import React from 'react-native';
-  const hasReactImport = (value) =>
-    value.type === 'ImportDefaultSpecifier' && value.local.name === 'React';
 
   const updateImport = (path) => {
     const { specifiers } = path.value;
@@ -110,6 +240,9 @@ module.exports = function(file, api, options) {
   const body = root.get().value.program.body;
   const comments = (body && body.length && body[0].comments) ? body[0].comments : null;
 
+  // This needs to happen before the primary transform.
+  const needsReactNativeImport = fixDestructured(j, root);
+
   /*
   Find and update all import React, { Component } from 'react-native' to
   import React, { Component } from 'react';
@@ -128,6 +261,10 @@ module.exports = function(file, api, options) {
       ).length > 0;
     })
     .forEach(updateImport);
+
+  if (needsReactNativeImport) {
+    addReactNativeImport(j, root);
+  }
 
   replaceRequireCalls(j, root);
 
