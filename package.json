@@ -1,4 +1,14 @@
 {
+  "name": "codemode-rn24-to-rn25",
+  "version": "1.0.0",
+  "description": "A codemod to transform imports from RN24 to >=RN25",
+  "license": "MIT",
+  "author": "Sibelius Seraphini",
+  "main": "./transform.js",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:sibeliusseraphini/codemod-RN24-to-RN25.git"
+  },
   "scripts": {
     "test": "mocha --compilers js:babel-register"
   },
