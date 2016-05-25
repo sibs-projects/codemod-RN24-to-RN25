@@ -4,6 +4,20 @@
   "description": "A codemod to transform imports from RN24 to >=RN25",
   "license": "MIT",
   "author": "Sibelius Seraphini",
+  "contributors": [
+    {
+      "name": "Ali Najafizadeh",
+      "url": "https://github.com/alinz"
+    },
+    {
+      "name": "Colin Parsons",
+      "url": "https://github.com/ultralame"
+    },
+    {
+      "name": "Jeremy Greer",
+      "url": "https://github.com/reergymerej"
+    }
+  ],
   "main": "./transform.js",
   "repository": {
     "type": "git",
