@@ -1,5 +1,5 @@
 {
-  "name": "codemode-rn24-to-rn25",
+  "name": "codemod-rn24-to-rn25",
   "version": "1.0.0",
   "description": "A codemod to transform imports from RN24 to >=RN25",
   "license": "MIT",
