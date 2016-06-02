@@ -231,6 +231,7 @@ export default function(file, api, options) {
       ))
     }
 
+    allImports[0].comments = path.node.comments;
     j(path).replaceWith(
       allImports
     );
