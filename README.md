@@ -17,7 +17,7 @@ You probably have many files that does this, so I've created a codemod to save y
 npm install -g jscodeshift
 
 # 2, 3
-git clone git@github.com:sibeliusseraphini/codemod-RN24-to-RN25.git && cd codemod-RN24-to-RN25
+git clone https://github.com/sibeliusseraphini/codemod-RN24-to-RN25.git && cd codemod-RN24-to-RN25
 
 # 4.
 jscodeshift PATH_TO_FILES
